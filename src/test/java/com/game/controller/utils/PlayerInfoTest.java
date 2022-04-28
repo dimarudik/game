@@ -68,4 +68,19 @@ public class PlayerInfoTest {
                 ", birthday=" + birthday +
                 '}';
     }
+
+    public String toString2() {
+        return "PlayerInfoTest{" +
+                "id=" + id +
+                ", name='" + name + '\'' +
+                ", title='" + title + '\'' +
+                ", race=" + race +
+                ", profession=" + profession +
+                ", birthday=" + birthday +
+                ", banned=" + banned +
+                ", experience=" + experience +
+                ", level=" + level +
+                ", untilNextLevel=" + untilNextLevel +
+                '}';
+    }
 }

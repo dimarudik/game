@@ -38,21 +38,8 @@ public class Controller {
             @RequestParam(name = "pageNumber", defaultValue = "0") Integer pageNumber,
             @RequestParam(name = "pageSize", defaultValue = "3") Integer pageSize,
             @RequestParam(name = "order", defaultValue = "ID") PlayerOrder order) {
-        return ResponseEntity.ok(playerService.getAllPlayers(
-                name,
-                title,
-                race,
-                profession,
-                after,
-                before,
-                banned,
-                minExperience,
-                maxExperience,
-                minLevel,
-                maxLevel,
-                pageNumber,
-                pageSize,
-                order));
+        return ResponseEntity.ok(playerService.getAllPlayers(name, title, race, profession, after, before, banned,
+                minExperience, maxExperience, minLevel, maxLevel, pageNumber, pageSize, order));
     }
 
     @GetMapping("/players/count")
@@ -68,23 +55,14 @@ public class Controller {
             @RequestParam(name = "maxExperience", defaultValue = "") Integer maxExperience,
             @RequestParam(name = "minLevel", defaultValue = "") Integer minLevel,
             @RequestParam(name = "maxLevel", defaultValue = "") Integer maxLevel) {
-        return playerService.count(name,
-                title,
-                race,
-                profession,
-                after,
-                before,
-                banned,
-                minExperience,
-                maxExperience,
-                minLevel,
-                maxLevel);
+        return playerService.count(name, title, race, profession, after, before, banned,
+                minExperience, maxExperience, minLevel, maxLevel);
     }
 
     @PostMapping("/players")
     public ResponseEntity<Player> newPlayer(@RequestBody Player player) {
         return ResponseEntity.ok(playerService
-                .save(player)
+                .savePlayer(player)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "Player can't be saved")));
     }
@@ -103,19 +81,15 @@ public class Controller {
     @RequestMapping(value = "/players/{id}", method = RequestMethod.POST)
     public ResponseEntity<Player> updateById(@PathVariable("id") String id, @RequestBody Player player) {
         if (id.chars().allMatch(Character::isDigit) && checkEmptyBodyBeforeUpdate(player)) {
-            System.out.println("here");
             return ResponseEntity.ok(playerService
                     .findById(Long.parseLong(id))
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                             "No players with specified ID were found")));
-        }
-
-        if (checkBeforeUpdate(id, player)) {
+        } else if (checkBeforeUpdate(id, player)) {
             return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
         }
-
         return ResponseEntity.ok(playerService
-                .update(Long.parseLong(id), player)
+                .updatePlayer(Long.parseLong(id), player)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                         "Player can't be saved")));
     }
@@ -131,12 +105,12 @@ public class Controller {
     }
 
     private Boolean checkBeforeUpdate(String id, Player player) {
-        System.out.println(player.getBirthday() + " " + player.getExperience() + " " + id);
         return !id.chars().allMatch(Character::isDigit)
                 || Long.parseLong(id) <= 0
-                || !(player.getBirthday().toLocalDate().getYear() >= 2000
+                || player.getBirthday() != null && !(player.getBirthday().toLocalDate().getYear() >= 2000
                 && player.getBirthday().toLocalDate().getYear() <= 3000)
-                || !(player.getExperience() >= 0 && player.getExperience() <= 10_000_000);
+                || player.getExperience() != null &&
+                !(player.getExperience() >= 0 && player.getExperience() <= 10_000_000);
     }
 
     private Boolean checkEmptyBodyBeforeUpdate(Player player) {

@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -23,41 +24,17 @@ public class PlayerService {
         this.playerRepository = playerRepository;
     }
 
-    public List<Player> getAllPlayers(String name,
-                                      String title,
-                                      Race race,
-                                      Profession profession,
-                                      Long after,
-                                      Long before,
-                                      Boolean banned,
-                                      Integer minExperience,
-                                      Integer maxExperience,
-                                      Integer minLevel,
-                                      Integer maxLevel,
-                                      Integer pageNo,
-                                      Integer pageSize,
+    public List<Player> getAllPlayers(String name, String title, Race race, Profession profession, Long after,
+                                      Long before, Boolean banned, Integer minExperience, Integer maxExperience,
+                                      Integer minLevel, Integer maxLevel, Integer pageNo, Integer pageSize,
                                       PlayerOrder order) {
-
         Pageable paging = PageRequest.of(pageNo, pageSize);
         int start = (int) paging.getOffset();
         int end = (int) (paging.getOffset() + paging.getPageSize());
-
-        List<Player> players = getPlayersFiltered(name,
-                title,
-                race,
-                profession,
-                after,
-                before,
-                banned,
-                minExperience,
-                maxExperience,
-                minLevel,
-                maxLevel,
-                order);
-
+        List<Player> players = getPlayersFiltered(name, title, race, profession, after, before, banned,
+                minExperience, maxExperience, minLevel, maxLevel, order);
         Page<Player> pagedResult = new PageImpl<>(players.subList(start, (Math.min(end, players.size()))),
                 paging, players.size());
-
         if (pagedResult.hasContent()) {
             return pagedResult.getContent();
         } else {
@@ -65,45 +42,15 @@ public class PlayerService {
         }
     }
 
-    public Integer count(String name,
-                         String title,
-                         Race race,
-                         Profession profession,
-                         Long after,
-                         Long before,
-                         Boolean banned,
-                         Integer minExperience,
-                         Integer maxExperience,
-                         Integer minLevel,
+    public Integer count(String name, String title, Race race, Profession profession, Long after, Long before,
+                         Boolean banned, Integer minExperience, Integer maxExperience, Integer minLevel,
                          Integer maxLevel) {
-        return getPlayersFiltered(name,
-                title,
-                race,
-                profession,
-                after,
-                before,
-                banned,
-                minExperience,
-                maxExperience,
-                minLevel,
-                maxLevel,
-                PlayerOrder.valueOf("ID")).size();
+        return getPlayersFiltered(name, title, race, profession, after, before, banned, minExperience,
+                maxExperience, minLevel, maxLevel, PlayerOrder.valueOf("ID")).size();
     }
 
-    public Optional<Player> save(Player player) {
-        if (player.getName() == null ||
-                player.getTitle() == null ||
-                player.getRace() == null ||
-                player.getProfession() == null ||
-                player.getBirthday() == null ||
-                player.getExperience() == null) {
-            return Optional.empty();
-        } else if (player.getName().length() > 12 || player.getTitle().length() > 30) {
-            return Optional.empty();
-        } else if (!(player.getBirthday().toLocalDate().getYear() >= 2000
-                && player.getBirthday().toLocalDate().getYear() <= 3000)) {
-            return Optional.empty();
-        } else if (!(player.getExperience() >= 0 && player.getExperience() <= 10_000_000)) {
+    public Optional<Player> savePlayer(Player player) {
+        if (checkNewPlayer(player)) {
             return Optional.empty();
         }
         player.setLevel((int) ((Math.sqrt(2500 + 200 * player.getExperience()) - 50) / 100));
@@ -115,13 +62,16 @@ public class PlayerService {
         return playerRepository.findById(id);
     }
 
-    public Optional<Player> update(Long id, Player player) {
+    public Optional<Player> updatePlayer(Long id, Player player) {
+        Player oldPlayer;
         if (!playerRepository.existsById(id)) {
             return Optional.empty();
         } else {
-            player.setId(playerRepository.findById(id).get().getId());
+            player.setId(Objects.requireNonNull(playerRepository.findById(id).orElse(null)).getId());
+            oldPlayer = findById(player.getId()).orElse(null);
+            player = updateNewPlayer(oldPlayer, player);
         }
-        System.out.println(player.getExperience());
+//        System.out.println(player.getId());
         player.setLevel((int) ((Math.sqrt(2500 + 200 * player.getExperience()) - 50) / 100));
         player.setUntilNextLevel(50 * (player.getLevel() + 1) * (player.getLevel() + 2) - player.getExperience());
         return Optional.of(playerRepository.save(player));
@@ -135,18 +85,9 @@ public class PlayerService {
         return false;
     }
 
-    private List<Player> getPlayersFiltered(String name,
-                                            String title,
-                                            Race race,
-                                            Profession profession,
-                                            Long after,
-                                            Long before,
-                                            Boolean banned,
-                                            Integer minExperience,
-                                            Integer maxExperience,
-                                            Integer minLevel,
-                                            Integer maxLevel,
-                                            PlayerOrder order) {
+    private List<Player> getPlayersFiltered(String name, String title, Race race, Profession profession, Long after,
+                                            Long before, Boolean banned, Integer minExperience, Integer maxExperience,
+                                            Integer minLevel, Integer maxLevel, PlayerOrder order) {
         return playerRepository
                 .findAll(Sort.by(order.getFieldName()))
                 .stream()
@@ -162,5 +103,47 @@ public class PlayerService {
                 .filter(player -> minLevel == null || player.getLevel() >= minLevel)
                 .filter(player -> maxLevel == null || player.getLevel() <= maxLevel)
                 .collect(Collectors.toList());
+    }
+
+    private Boolean checkNewPlayer(Player player) {
+        return player.getName() == null
+                || player.getTitle() == null
+                || player.getRace() == null
+                || player.getProfession() == null
+                || player.getBirthday() == null
+                || player.getExperience() == null
+                || player.getName().length() > 12
+                || player.getTitle().length() > 30
+                || !(player.getBirthday().toLocalDate().getYear() >= 2000
+                && player.getBirthday().toLocalDate().getYear() <= 3000)
+                || !(player.getExperience() >= 0 && player.getExperience() <= 10_000_000);
+    }
+
+    private Player updateNewPlayer (Player oldPlayer, Player newPlayer) {
+        if (newPlayer.getName() != null) {
+            oldPlayer.setName(newPlayer.getName());
+        }
+        if (newPlayer.getTitle() != null) {
+            oldPlayer.setTitle(newPlayer.getTitle());
+        }
+        if (newPlayer.getRace() != null) {
+            oldPlayer.setRace(newPlayer.getRace());
+        }
+        if (newPlayer.getProfession() != null) {
+            oldPlayer.setProfession(newPlayer.getProfession());
+        }
+        if (newPlayer.getBirthday() != null) {
+            oldPlayer.setBirthday(newPlayer.getBirthday());
+        }
+        if (newPlayer.getBanned() != null) {
+            oldPlayer.setBanned(newPlayer.getBanned());
+        }
+        if (newPlayer.getExperience() != null) {
+            oldPlayer.setExperience(newPlayer.getExperience());
+        }
+        if (newPlayer.getLevel() != null) {
+            oldPlayer.setLevel(newPlayer.getLevel());
+        }
+        return oldPlayer;
     }
 }
